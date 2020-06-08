@@ -1,28 +1,35 @@
 <template>
-  <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
-  </div>
+  <b-container fluid style="height: 100%;">
+    <b-row align-v="stretch" style="height: 100%;">
+      <b-col id="panel" cols="3">
+        <Panel />
+      </b-col>
+      <b-col>
+        <Map />
+      </b-col>
+    </b-row>
+  </b-container>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import Map from './components/Map.vue'
+import Panel from './components/Panel.vue'
 
 export default {
   name: 'App',
   components: {
-    HelloWorld
+    Map, Panel
   }
 }
 </script>
 
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+html,body {
+  height: 100%;
+  margin: 0;
+}
+
+#panel {
+  background-color: rgb(240, 240, 240);
 }
 </style>
