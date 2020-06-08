@@ -14,7 +14,8 @@ export default {
     return {};
   },
   mounted() {
-    var data = axios.get('http://localhost:5000/network');
+    var url = window.location.protocol + "//" + window.location.hostname + ":5000";
+    var data = axios.get(url + '/network');
     var self = this;
 
     data.then(function(response) {
