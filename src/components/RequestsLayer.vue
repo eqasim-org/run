@@ -13,30 +13,26 @@
 
 <script>
 import * as d3 from "d3";
+import * as _ from "lodash";
 
 export default {
   name: "RequestsLayer",
   data() {
-    var scale = 0.028;
-
-    var projection = d3.geoIdentity()
-        .scale(scale)
-        .translate([-651791.0 * scale + this.width * 0.5, -6862293.0 * scale + this.height * 0.5]);
-
     return {
-      width: 0, height: 0, projection: projection
+      width: 0, height: 0,
+      selectedRequests: []
     };
   },
   props: ["layerState"],
-  computed: {
-    selectedRequests() {
+  watch: {
+    "layerState.time": _.debounce(function() {
       var scale = 0.028;
 
       var projection = d3.geoIdentity()
           .scale(scale)
           .translate([-651791.0 * scale + this.width * 0.5, -6862293.0 * scale + this.height * 0.5])
 
-      return this.layerState.requests.filter((item) => {
+      this.selectedRequests = this.layerState.requests.filter((item) => {
         return item.departure_time < this.layerState.time && item.pickup_time > this.layerState.time;
       }).map((item) => {
         var request = { id: item.id };
@@ -47,7 +43,7 @@ export default {
 
         return request;
       });
-    }
+    }, 100)
   },
   methods: {
     onResize() {
