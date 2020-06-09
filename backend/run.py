@@ -33,12 +33,21 @@ df_activities = gpd.sjoin(df_activities, df_iris, op = "within")
 df_population = pd.merge(df_activities, df_persons, on = "person_id")
 df_population = pd.merge(df_population, df_households, on = "household_id")
 
+df_services = pd.read_csv("../data/services_price_2500.csv", sep = ";")
+df_services["pickup_time"] = df_services["departure_time"] + df_services["waiting_time"]
+df_services = df_services[["departure_time", "pickup_time", "origin_x", "origin_y"]]
+df_services["id"] = np.arange(len(df_services))
+
 def gini(x):
     """Compute Gini coefficient of array of values"""
     diffsum = 0
     for i, xi in enumerate(x[:-1], 1):
         diffsum += np.sum(np.abs(xi - x[i:]))
     return diffsum / (len(x)**2 * np.mean(x))
+
+class RequestsLayer(Resource):
+    def get(self):
+        return json.loads(df_services.to_json(orient = "records"))
 
 class PopulationLayer(Resource):
     def get(self, attribute, metric):
@@ -63,7 +72,7 @@ class PopulationLayer(Resource):
             response.update(dict(minimumValue = 0, maximumValue = 100))
         elif attribute == "income":
             response.update(dict(minimumValue = 0, maximumValue = df_response["value"].max()))
-            
+
         if metric == "gini":
             response.update(dict(minimumValue = 0, maximumValue = 1))
 
@@ -82,6 +91,7 @@ class Network(Resource):
         ]
 
 api.add_resource(Network, '/network')
+api.add_resource(RequestsLayer, '/requests')
 api.add_resource(PopulationLayer, '/population/<string:attribute>/<string:metric>')
 
 if __name__ == '__main__':

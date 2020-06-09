@@ -3,10 +3,12 @@
     <b-row align-v="stretch" style="height: 100%;">
       <b-col id="panel" cols="3">
         <ZoneLayerPanel :layerState="layerState" />
+        <RequestsLayerPanel :layerState="requestsLayerState" />
       </b-col>
       <b-col>
         <svg id="map">
           <ZoneLayer :layerState="layerState"  />
+          <RequestsLayer :layerState="requestsLayerState"  />
         </svg>
       </b-col>
     </b-row>
@@ -19,12 +21,15 @@ import Vue from 'vue'
 import ZoneLayerPanel from "./components/ZoneLayerPanel.vue"
 import ZoneLayer from "./components/ZoneLayer.vue"
 
+import RequestsLayerPanel from "./components/RequestsLayerPanel.vue"
+import RequestsLayer from "./components/RequestsLayer.vue"
+
 import * as axios from "axios";
 
 export default {
   name: 'App',
   components: {
-    ZoneLayerPanel, ZoneLayer
+    ZoneLayerPanel, ZoneLayer, RequestsLayerPanel, RequestsLayer
   },
   data() {
     var layerState = Vue.observable({
@@ -36,10 +41,17 @@ export default {
       loading: false
     });
 
-    return { layerState: layerState };
+    var requestsLayerState = Vue.observable({
+      time: 5.0 * 3600.0,
+      loading: false,
+      requests: [],
+    })
+
+    return { layerState: layerState, requestsLayerState: requestsLayerState };
   },
   mounted() {
     this.load();
+    this.loadRequests();
   },
   methods: {
     load() {
@@ -52,6 +64,16 @@ export default {
           this.layerState.minimumValue = response.data.minimumValue;
           this.layerState.maximumValue = response.data.maximumValue;
           this.layerState.loading = false;
+      });
+    },
+    loadRequests() {
+      this.requestsLayerState.loading = true;
+      var url = window.location.protocol + "//" + window.location.hostname + ":5000";
+
+      axios.get(
+        url + "/requests").then((response) => {
+          this.requestsLayerState.requests = response.data;
+          this.requestsLayerState.loading = false;
       });
     }
   },
