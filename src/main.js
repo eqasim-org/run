@@ -9,6 +9,9 @@ Vue.config.productionTip = false
 
 Vue.use(BootstrapVue)
 
+import VueDragDrop from 'vue-drag-drop';
+Vue.use(VueDragDrop);
+
 new Vue({
   render: h => h(App)
 }).$mount('#app')

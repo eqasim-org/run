@@ -25,11 +25,19 @@ export default {
   props: ["layerState"],
   computed: {
     zones() {
-      var scale = 0.028;
+      var scale = this.layerState.scale;
+      var width = this.width;
+      var height = this.height;
+      var offset = this.layerState.offset;
 
-      var projection = d3.geoIdentity()
-          .scale(scale)
-          .translate([-651791.0 * scale + this.width * 0.5, -6862293.0 * scale + this.height * 0.5])
+      var projection = d3.geoTransform({
+        point: function(x, y) {
+          this.stream.point(
+            (x - 651791.0) * scale + width * 0.5 + offset[0],
+            (y - 6862293.0) * scale + height * 0.5 + offset[1]
+          );
+        }
+      });
 
       var generator = d3.geoPath()
         .projection(projection);

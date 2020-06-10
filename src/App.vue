@@ -1,12 +1,19 @@
 <template>
   <b-container fluid style="height: 100%;">
+    <b-navbar toggleable="lg" type="dark" variant="info" style="position: absolute; z-index: 100; width: 100%; margin-left:-1em;">
+      <b-navbar-brand href="#">eqarun</b-navbar-brand>
+      <b-navbar-nav>
+        <b-nav-item href="#">Runs</b-nav-item>
+        <b-nav-item href="#">Visualization</b-nav-item>
+      </b-navbar-nav>
+    </b-navbar>
     <b-row align-v="stretch" style="height: 100%;">
-      <b-col id="panel" cols="3">
+      <b-col id="panel" cols="3" style="padding-top: 60px;">
         <ZoneLayerPanel :layerState="layerState" />
         <RequestsLayerPanel :layerState="requestsLayerState" />
       </b-col>
       <b-col>
-        <svg id="map">
+        <svg id="map" v-on:wheel="onScale" v-on:mousedown="onMouseDown" v-on:mouseup="onMouseUp" v-on:mouseover="onMouseMove" >
           <ZoneLayer :layerState="layerState"  />
           <RequestsLayer :layerState="requestsLayerState"  />
         </svg>
@@ -25,6 +32,7 @@ import RequestsLayerPanel from "./components/RequestsLayerPanel.vue"
 import RequestsLayer from "./components/RequestsLayer.vue"
 
 import * as axios from "axios";
+import * as _ from "lodash";
 
 export default {
   name: 'App',
@@ -38,16 +46,22 @@ export default {
       minimumValue: 0,
       maximumValue: 100,
       features: [],
-      loading: false
+      loading: false,
+      scale: 0.028, offset: [0, 0]
     });
 
     var requestsLayerState = Vue.observable({
       time: 5.0 * 3600.0,
       loading: false,
       requests: [],
+      scale: 0.028, offset: [0, 0]
     })
 
-    return { layerState: layerState, requestsLayerState: requestsLayerState };
+    return {
+      layerState: layerState, requestsLayerState: requestsLayerState,
+      scale: 0.028, offset: [0, 0],
+      mouseDownLocation: undefined
+    };
   },
   mounted() {
     this.load();
@@ -75,7 +89,31 @@ export default {
           this.requestsLayerState.requests = response.data;
           this.requestsLayerState.loading = false;
       });
-    }
+    },
+    onScale(event) {
+      this.scale -= 1e-3 * event.deltaY;
+      this.updateScale();
+    },
+    updateScale: _.debounce(function() {
+      this.layerState.scale = this.scale;
+      this.requestsLayerState.scale = this.scale;
+    }, 100),
+    onMouseDown(event) {
+      this.mouseDownLocation = [event.clientX, event.clientY];
+    },
+    onMouseUp() {
+      this.mouseDownLocation = undefined;
+    },
+    onMouseMove(event) {
+      if (this.mouseDownLocation != undefined) {
+        this.offset = [event.clientX - this.mouseDownLocation[0], event.clientY - this.mouseDownLocation[1]];
+        this.updateOffset();
+      }
+    },
+    updateOffset: _.debounce(function() {
+      this.layerState.offset = this.offset;
+      this.requestsLayerState.offset = this.offset;
+    }, 100),
   },
   watch: {
     "layerState.metric": function() { this.load() },
