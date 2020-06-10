@@ -2,6 +2,7 @@ from flask import Flask, Response
 from flask_restful import Resource, Api
 from flask_cors import CORS
 from flask import request
+import matsim
 
 app = Flask(__name__)
 CORS(app)
@@ -38,6 +39,8 @@ df_services["pickup_time"] = df_services["departure_time"] + df_services["waitin
 df_services = df_services[["departure_time", "pickup_time", "origin_x", "origin_y"]]
 df_services["id"] = np.arange(len(df_services))
 
+population = matsim.read_population("../data/output_plans.xml.gz")
+
 def gini(x):
     """Compute Gini coefficient of array of values"""
     diffsum = 0
@@ -48,6 +51,31 @@ def gini(x):
 class RequestsLayer(Resource):
     def get(self):
         return json.loads(df_services.to_json(orient = "records"))
+
+class ActivitiesLayer(Resource):
+    def get(self, person_id):
+        for person in population:
+            if person["id"] == person_id:
+                return person["activities"]
+
+class PersonsLayer(Resource):
+    def get(self):
+        persons = []
+
+        for person in population:
+            for activity in person["activities"]:
+                if activity["purpose"] == "home":
+                    distance = np.sqrt((activity["x"] - center.x)**2 + (activity["y"] - center.y)**2)
+
+                    if distance < radius:
+                        persons.append(dict(
+                            id = person["id"],
+                            x = activity["x"],
+                            y = activity["y"]
+                        ))
+                    break
+
+        return persons
 
 class PopulationLayer(Resource):
     def get(self, attribute, metric):
@@ -92,6 +120,8 @@ class Network(Resource):
 
 api.add_resource(Network, '/network')
 api.add_resource(RequestsLayer, '/requests')
+api.add_resource(PersonsLayer, '/persons')
+api.add_resource(ActivitiesLayer, '/activities/<string:person_id>')
 api.add_resource(PopulationLayer, '/population/<string:attribute>/<string:metric>')
 
 if __name__ == '__main__':

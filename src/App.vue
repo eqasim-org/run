@@ -3,19 +3,20 @@
     <b-navbar toggleable="lg" type="dark" variant="info" style="position: absolute; z-index: 100; width: 100%; margin-left:-1em;">
       <b-navbar-brand href="#">eqarun</b-navbar-brand>
       <b-navbar-nav>
-        <b-nav-item href="#">Runs</b-nav-item>
         <b-nav-item href="#">Visualization</b-nav-item>
       </b-navbar-nav>
     </b-navbar>
     <b-row align-v="stretch" style="height: 100%;">
       <b-col id="panel" cols="3" style="padding-top: 60px;">
         <ZoneLayerPanel :layerState="layerState" />
-        <RequestsLayerPanel :layerState="requestsLayerState" />
+        <RequestsLayerPanel :layerState="requestsLayerState" v-if="false" />
+        <ActivitiesLayerPanel :layerState="activitiesLayerState" />
       </b-col>
       <b-col>
         <svg id="map" v-on:wheel="onScale" v-on:mousedown="onMouseDown" v-on:mouseup="onMouseUp" v-on:mouseover="onMouseMove" >
           <ZoneLayer :layerState="layerState"  />
-          <RequestsLayer :layerState="requestsLayerState"  />
+          <RequestsLayer :layerState="requestsLayerState" v-if="false"  />
+          <ActivitiesLayer :layerState="activitiesLayerState" />
         </svg>
       </b-col>
     </b-row>
@@ -31,13 +32,16 @@ import ZoneLayer from "./components/ZoneLayer.vue"
 import RequestsLayerPanel from "./components/RequestsLayerPanel.vue"
 import RequestsLayer from "./components/RequestsLayer.vue"
 
+import ActivitiesLayerPanel from "./components/ActivitiesLayerPanel.vue"
+import ActivitiesLayer from "./components/ActivitiesLayer.vue"
+
 import * as axios from "axios";
 import * as _ from "lodash";
 
 export default {
   name: 'App',
   components: {
-    ZoneLayerPanel, ZoneLayer, RequestsLayerPanel, RequestsLayer
+    ZoneLayerPanel, ZoneLayer, RequestsLayerPanel, RequestsLayer, ActivitiesLayerPanel, ActivitiesLayer
   },
   data() {
     var layerState = Vue.observable({
@@ -57,8 +61,14 @@ export default {
       scale: 0.028, offset: [0, 0]
     })
 
+    var activitiesLayerState = Vue.observable({
+      loading: false,
+      persons: [], selectedPerson: undefined,
+      scale: 0.028, offset: [0, 0]
+    })
+
     return {
-      layerState: layerState, requestsLayerState: requestsLayerState,
+      layerState: layerState, requestsLayerState: requestsLayerState, activitiesLayerState: activitiesLayerState,
       scale: 0.028, offset: [0, 0],
       mouseDownLocation: undefined
     };
@@ -66,6 +76,7 @@ export default {
   mounted() {
     this.load();
     this.loadRequests();
+    this.loadActivities();
   },
   methods: {
     load() {
@@ -90,6 +101,16 @@ export default {
           this.requestsLayerState.loading = false;
       });
     },
+    loadActivities() {
+      this.activitiesLayerState.loading = true;
+      var url = window.location.protocol + "//" + window.location.hostname + ":5000";
+
+      axios.get(
+        url + "/persons").then((response) => {
+          this.activitiesLayerState.persons = response.data;
+          this.activitiesLayerState.loading = false;
+      });
+    },
     onScale(event) {
       this.scale -= 1e-3 * event.deltaY;
       this.updateScale();
@@ -97,6 +118,7 @@ export default {
     updateScale: _.debounce(function() {
       this.layerState.scale = this.scale;
       this.requestsLayerState.scale = this.scale;
+      this.activitiesLayerState.scale = this.scale;
     }, 100),
     onMouseDown(event) {
       this.mouseDownLocation = [event.clientX, event.clientY];
@@ -113,6 +135,7 @@ export default {
     updateOffset: _.debounce(function() {
       this.layerState.offset = this.offset;
       this.requestsLayerState.offset = this.offset;
+      this.activitiesLayerState.offset = this.offset;
     }, 100),
   },
   watch: {
