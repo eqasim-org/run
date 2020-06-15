@@ -3,6 +3,7 @@ from flask_restful import Resource, Api
 from flask_cors import CORS
 from flask import request
 import matsim
+import threading
 
 app = Flask(__name__)
 CORS(app)
@@ -12,7 +13,8 @@ import geopandas as gpd
 import shapely.geometry as geo
 import numpy as np
 import pandas as pd
-import json
+import json, pickle
+from tqdm import tqdm
 
 center = geo.Point(651791.0, 6862293.0)
 radius = 10000
@@ -23,6 +25,11 @@ df_iris = df_iris[df_iris.geometry.centroid.distance(center) < radius]
 df_iris = df_iris[["CODE_IRIS", "geometry"]].rename(
     columns = { "CODE_IRIS": "iris_id" }
 )
+
+df_municipality = df_iris.copy()
+df_municipality["municipality_id"] = df_municipality["iris_id"].str[:-4]
+del df_municipality["iris_id"]
+df_municipality = df_municipality.dissolve("municipality_id")
 
 df_households = pd.read_csv("../data/output/households.csv", sep = ";")
 df_persons = pd.read_csv("../data/output/persons.csv", sep = ";")
@@ -40,6 +47,89 @@ df_services = df_services[["departure_time", "pickup_time", "origin_x", "origin_
 df_services["id"] = np.arange(len(df_services))
 
 population = matsim.read_population("../data/output_plans.xml.gz")
+
+with open("../data/trips.p", "rb") as f:
+    df_trips = pickle.load(f)
+
+class SkimMatrixManager:
+    def __init__(self, df):
+        self.df = df
+        self.matrices = {}
+
+    def calculate(self, identifier, settings):
+        self.matrices[identifier] = dict(
+            status = {
+                "state": "processing", "progress": 0.0
+            }
+        )
+
+        attribute = settings["attribute"]
+        metric = settings["metric"]
+
+        df_output = []
+
+        unique_origins = self.df["origin_municipality_id"].unique()
+        unique_destinations = self.df["destination_municipality_id"].unique()
+
+        total_count = len(unique_origins) * len(unique_destinations)
+        current_count = 0
+
+        destination_filters = {}
+
+        for origin in unique_origins:
+            f_origin = self.df["origin_municipality_id"] == origin
+
+            for destination in unique_destinations:
+                if not destination in destination_filters:
+                    destination_filters[destination] = self.df["destination_municipality_id"] == destination
+
+                f_destination = destination_filters[destination]
+
+                df_relation = self.df[f_origin & f_destination]
+
+                df_output.append(dict(
+                    origin_municipality_id = origin, destination_municipality_id = destination,
+                    value = df_relation[attribute].aggregate(metric)
+                ))
+
+                current_count += 1
+                self.matrices[identifier]["status"]["progress"] = current_count / total_count
+
+                print(current_count / total_count)
+
+        df_output = pd.DataFrame.from_records(df_output)
+
+        self.matrices[identifier]["data"] = df_output
+        self.matrices[identifier]["status"] = dict(state = "done")
+
+    def get_status(self, identifier):
+        return self.matrices[identifier]["status"]
+
+    def get_data(self, identifier):
+        return self.matrices[identifier]["data"]
+
+skim_matrix_manager = SkimMatrixManager(df_trips)
+#skim_matrix_manager.calculate("abc", { "attribute": "travel_time", "metric": "mean" })
+
+class SkimMatrixLayerStatus(Resource):
+    def get(self, identifier):
+        return skim_matrix_manager.get_status(identifier)
+
+class SkimMatrixLayerCalculate(Resource):
+    def get(self, identifier, attribute, metric):
+        threading.Thread(target = lambda: skim_matrix_manager.calculate(identifier, dict(
+            attribute = attribute,
+            metric = metric
+        ))).start()
+
+class SkimMatrixLayerData(Resource):
+    def get(self, identifier):
+        df_data = skim_matrix_manager.get_data(identifier)
+        return json.loads(df_data.to_json(orient = "records"))
+
+class SkimMatrixLayerShape(Resource):
+    def get(self, identifier):
+        return json.loads(df_municipality.reset_index().to_json())
 
 def gini(x):
     """Compute Gini coefficient of array of values"""
@@ -123,6 +213,10 @@ api.add_resource(RequestsLayer, '/requests')
 api.add_resource(PersonsLayer, '/persons')
 api.add_resource(ActivitiesLayer, '/activities/<string:person_id>')
 api.add_resource(PopulationLayer, '/population/<string:attribute>/<string:metric>')
+api.add_resource(SkimMatrixLayerStatus, "/skim/status/<string:identifier>")
+api.add_resource(SkimMatrixLayerCalculate, "/skim/calculate/<string:identifier>/<string:attribute>/<string:metric>")
+api.add_resource(SkimMatrixLayerData, "/skim/data/<string:identifier>")
+api.add_resource(SkimMatrixLayerShape, "/skim/shape/<string:identifier>")
 
 if __name__ == '__main__':
     app.run(debug = True, host = '0.0.0.0')

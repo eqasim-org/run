@@ -8,15 +8,17 @@
     </b-navbar>
     <b-row align-v="stretch" style="height: 100%;">
       <b-col id="panel" cols="3" style="padding-top: 60px;">
-        <ZoneLayerPanel :layerState="layerState" />
+        <ZoneLayerPanel :layerState="layerState" v-if="false" />
         <RequestsLayerPanel :layerState="requestsLayerState" v-if="false" />
-        <ActivitiesLayerPanel :layerState="activitiesLayerState" />
+        <ActivitiesLayerPanel :layerState="activitiesLayerState" v-if="false" />
+        <SkimMatrixLayerPanel :layerState="skimLayerState" />
       </b-col>
       <b-col>
         <svg id="map" v-on:wheel="onScale" v-on:mousedown="onMouseDown" v-on:mouseup="onMouseUp" v-on:mouseover="onMouseMove" >
-          <ZoneLayer :layerState="layerState"  />
+          <ZoneLayer :layerState="layerState" v-if="false"  />
           <RequestsLayer :layerState="requestsLayerState" v-if="false"  />
-          <ActivitiesLayer :layerState="activitiesLayerState" />
+          <ActivitiesLayer :layerState="activitiesLayerState" v-if="false" />
+          <SkimMatrixLayer :layerState="skimLayerState" />
         </svg>
       </b-col>
     </b-row>
@@ -35,13 +37,17 @@ import RequestsLayer from "./components/RequestsLayer.vue"
 import ActivitiesLayerPanel from "./components/ActivitiesLayerPanel.vue"
 import ActivitiesLayer from "./components/ActivitiesLayer.vue"
 
+import SkimMatrixLayerPanel from "./components/SkimMatrixLayerPanel.vue"
+import SkimMatrixLayer from "./components/SkimMatrixLayer.vue"
+
 import * as axios from "axios";
 import * as _ from "lodash";
 
 export default {
   name: 'App',
   components: {
-    ZoneLayerPanel, ZoneLayer, RequestsLayerPanel, RequestsLayer, ActivitiesLayerPanel, ActivitiesLayer
+    ZoneLayerPanel, ZoneLayer, RequestsLayerPanel, RequestsLayer, ActivitiesLayerPanel, ActivitiesLayer,
+    SkimMatrixLayerPanel, SkimMatrixLayer
   },
   data() {
     var layerState = Vue.observable({
@@ -67,8 +73,21 @@ export default {
       scale: 0.028, offset: [0, 0]
     })
 
+    var skimLayerState = Vue.observable({
+      loading: false,
+      attribute: undefined,
+      metric: undefined,
+      requestedAttribute: "travel_time",
+      requestedMetric: "mean",
+      minimumValue: 0,
+      maximumValue: 3600,
+      scale: 0.028, offset: [0, 0],
+      features: [], data: {}
+    })
+
     return {
       layerState: layerState, requestsLayerState: requestsLayerState, activitiesLayerState: activitiesLayerState,
+      skimLayerState: skimLayerState,
       scale: 0.028, offset: [0, 0],
       mouseDownLocation: undefined
     };
